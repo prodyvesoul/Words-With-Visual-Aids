@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word and Picture Presentation</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #222;
+        }
+
+        #app {
+            width: 94%;
+            max-width: 900px;
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+        }
+
+        #word {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        #stimulusImage {
+            display: none;
+            max-width: 70vw;
+            max-height: 50vh;
+            object-fit: contain;
+        }
+
+        #message {
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 13px 24px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: #222;
+            color: white;
+            margin-top: 18px;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #counter {
+            position: fixed;
+            top: 14px;
+            right: 18px;
+            font-size: 0.95rem;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <main id="app">
+
+        <div id="counter" class="hidden"></div>
+
+        <div id="intro">
+            <h1>Word and Picture Presentation</h1>
+
+            <p>
+                Each word and picture will appear briefly.
+                Please pay attention.
+            </p>
+
+            <p>
+                There are 10 items. The presentation cannot be paused
+                once it starts.
+            </p>
+
+            <button id="startButton">Start</button>
+        </div>
+
+        <div id="stimulus" class="hidden">
+            <div id="word"></div>
+            <img id="stimulusImage" alt="">
+        </div>
+
+        <div id="message" class="hidden"></div>
+
+    </main>
+
+    <script>
+        // Make sure the filenames match your images exactly.
+        // Put all images inside a folder named "images".
+
+        const stimuli = [
+            { word: "Slippers", image: "C:/Users/Charlie/OneDrive/Desktop/images/slippers.png" },
+            { word: "Pizza", image: "C:/Users/Charlie/OneDrive/Desktop/images/pizza.png" },
+            { word: "Cap", image: "C:/Users/Charlie/OneDrive/Desktop/images/cap.png" },
+            { word: "Biscuit", image: "C:/Users/Charlie/OneDrive/Desktop/images/biscuit.png" },
+            { word: "Guitar", image: "C:/Users/Charlie/OneDrive/Desktop/images/guitar.png" },
+            { word: "Lamp", image: "C:/Users/Charlie/OneDrive/Desktop/images/lamp.png" },
+            { word: "Key", image: "C:/Users/Charlie/OneDrive/Desktop/images/key.png" },
+            { word: "Jacket", image: "C:/Users/Charlie/OneDrive/Desktop/images/jacket.png" },
+            { word: "Dog", image: "C:/Users/Charlie/OneDrive/Desktop/images/dog.png" },
+            { word: "Brush", image: "C:/Users/Charlie/OneDrive/Desktop/images/brush.png" }
+        ];
+
+        // Presentation timings
+        const WORD_DURATION_MS = 3000;
+        const BLANK_INTERVAL_MS = 500;
+
+        const intro = document.getElementById("intro");
+        const stimulus = document.getElementById("stimulus");
+        const wordElement = document.getElementById("word");
+        const imageElement = document.getElementById("stimulusImage");
+        const message = document.getElementById("message");
+        const counter = document.getElementById("counter");
+        const startButton = document.getElementById("startButton");
+
+        let started = false;
+
+        // Load all pictures before beginning the experiment.
+        function preloadImages() {
+            return Promise.all(
+                stimuli.map(item => {
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+
+                        img.onload = () => resolve();
+
+                        img.onerror = () => {
+                            reject(
+                                new Error("Could not load " + item.image)
+                            );
+                        };
+
+                        img.src = item.image;
+                    });
+                })
+            );
+        }
+
+        // Display each word and its corresponding picture.
+        function showItem(index) {
+
+            // End the presentation after all 10 items.
+            if (index >= stimuli.length) {
+                stimulus.classList.add("hidden");
+                counter.classList.add("hidden");
+
+                message.textContent =
+                    "The presentation is complete. Thank you.";
+
+                message.classList.remove("hidden");
+                return;
+            }
+
+            const item = stimuli[index];
+
+            wordElement.textContent = item.word;
+
+            imageElement.src = item.image;
+            imageElement.alt = "Picture of " + item.word;
+            imageElement.style.display = "block";
+
+            stimulus.classList.remove("hidden");
+
+            counter.textContent =
+                (index + 1) + " / " + stimuli.length;
+
+            counter.classList.remove("hidden");
+
+            // Show the word and picture for 3 seconds.
+            window.setTimeout(() => {
+
+                // Clear the screen.
+                stimulus.classList.add("hidden");
+                wordElement.textContent = "";
+                imageElement.removeAttribute("src");
+
+                // Wait 0.5 seconds before showing the next item.
+                window.setTimeout(() => {
+                    showItem(index + 1);
+                }, BLANK_INTERVAL_MS);
+
+            }, WORD_DURATION_MS);
+        }
+
+        // Start the presentation.
+        startButton.addEventListener("click", async () => {
+
+            if (started) return;
+
+            started = true;
+            startButton.disabled = true;
+            startButton.textContent = "Loading...";
+
+            try {
+                await preloadImages();
+
+                intro.classList.add("hidden");
+
+                showItem(0);
+
+            } catch (error) {
+                started = false;
+                startButton.disabled = false;
+                startButton.textContent = "Start";
+
+                alert(
+                    "One or more images could not be found. " +
+                    "Check your images folder and filenames.\n\n" +
+                    error.message
+                );
+            }
+        });
+
+        // Discourage accidental right-click interruptions.
+        document.addEventListener("contextmenu", event => {
+            if (started) {
+                event.preventDefault();
+            }
+        });
+    </script>
+
+</body>
+</html>
